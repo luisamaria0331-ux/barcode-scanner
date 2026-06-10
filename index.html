@@ -14,14 +14,17 @@
     }
 
     video {
-      width: 320px;
+      width: 90%;
+      max-width: 420px;
+      height: auto;
       margin-top: 20px;
-      display: none;
+      border-radius: 10px;
     }
 
     button {
       font-size: 18px;
       padding: 12px 20px;
+      margin-top: 10px;
     }
 
     #status {
@@ -37,7 +40,7 @@
 
 <button id="startBtn">Start Scanning</button>
 
-<video id="video" autoplay></video>
+<video id="video" autoplay muted playsinline></video>
 
 <div id="status">Idle</div>
 
@@ -52,7 +55,6 @@ document.getElementById("startBtn").addEventListener("click", async () => {
   document.getElementById("status").innerText = "Starting camera...";
 
   const video = document.getElementById("video");
-  video.style.display = "block";
 
   try {
 
@@ -67,8 +69,20 @@ document.getElementById("startBtn").addEventListener("click", async () => {
 
     const deviceId = devices[devices.length - 1].deviceId;
 
+    // 🔥 IMPORTANT: improve “zoomed in” feeling
+    const constraints = {
+      video: {
+        deviceId: { exact: deviceId },
+        width: { ideal: 1280 },
+        height: { ideal: 720 },
+        facingMode: "environment"
+      }
+    };
+
     document.getElementById("status").innerText =
       "Camera active. Point at barcode.";
+
+    video.style.display = "block";
 
     codeReader.decodeFromVideoDevice(
       deviceId,
@@ -84,12 +98,8 @@ document.getElementById("startBtn").addEventListener("click", async () => {
 
           try {
 
-            await fetch(ENDPOINT, {
-              method: "POST",
-              body: new URLSearchParams({
-                barcode: text
-              })
-            });
+            // 🔥 FIX: use GET instead of POST (this solves "load failed")
+            await fetch(ENDPOINT + "?barcode=" + encodeURIComponent(text));
 
             document.getElementById("status").innerText =
               "Saved: " + text;

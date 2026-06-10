@@ -54,24 +54,24 @@ document.getElementById("startBtn").addEventListener("click", async () => {
   const video = document.getElementById("video");
   video.style.display = "block";
 
-  codeReader = new ZXing.BrowserMultiFormatReader();
-
   try {
+
+    codeReader = new ZXing.BrowserMultiFormatReader();
 
     const devices = await codeReader.listVideoInputDevices();
 
-    if (devices.length === 0) {
+    if (!devices || devices.length === 0) {
       document.getElementById("status").innerText = "No camera found";
       return;
     }
 
-    const selectedDeviceId = devices[devices.length - 1].deviceId;
+    const deviceId = devices[devices.length - 1].deviceId;
 
     document.getElementById("status").innerText =
       "Camera active. Point at barcode.";
 
     codeReader.decodeFromVideoDevice(
-      selectedDeviceId,
+      deviceId,
       video,
       async (result, err) => {
 
@@ -83,12 +83,10 @@ document.getElementById("startBtn").addEventListener("click", async () => {
             "Scanned: " + text;
 
           try {
+
             await fetch(ENDPOINT, {
               method: "POST",
-              headers: {
-                "Content-Type": "application/json"
-              },
-              body: JSON.stringify({
+              body: new URLSearchParams({
                 barcode: text
               })
             });
@@ -97,14 +95,16 @@ document.getElementById("startBtn").addEventListener("click", async () => {
               "Saved: " + text;
 
           } catch (e) {
+
             document.getElementById("status").innerText =
-              "Save error: " + e.message;
+              "Save failed: " + e.message;
           }
         }
       }
     );
 
   } catch (err) {
+
     document.getElementById("status").innerText =
       "ERROR: " + err.message;
   }

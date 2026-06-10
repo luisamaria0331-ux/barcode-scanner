@@ -10,15 +10,35 @@
     body {
       font-family: Arial;
       text-align: center;
-      padding: 20px;
+      padding: 15px;
+      background: #111;
+      color: white;
+    }
+
+    #container {
+      position: relative;
+      width: 100%;
+      max-width: 420px;
+      margin: auto;
     }
 
     video {
-      width: 90%;
-      max-width: 420px;
-      height: auto;
-      margin-top: 20px;
-      border-radius: 10px;
+      width: 100%;
+      border-radius: 12px;
+      background: black;
+    }
+
+    /* 🎯 scanning guide box optimized for thin barcodes */
+    #overlay {
+      position: absolute;
+      top: 40%;
+      left: 10%;
+      width: 80%;
+      height: 12%;
+      border: 2px solid #00ff88;
+      border-radius: 8px;
+      box-shadow: 0 0 10px #00ff88;
+      pointer-events: none;
     }
 
     button {
@@ -28,8 +48,9 @@
     }
 
     #status {
-      margin-top: 15px;
+      margin-top: 12px;
       font-weight: bold;
+      color: #00ff88;
     }
   </style>
 </head>
@@ -40,7 +61,10 @@
 
 <button id="startBtn">Start Scanning</button>
 
-<video id="video" autoplay muted playsinline></video>
+<div id="container">
+  <video id="video" autoplay muted playsinline></video>
+  <div id="overlay"></div>
+</div>
 
 <div id="status">Idle</div>
 
@@ -48,45 +72,31 @@
 
 const ENDPOINT = "https://script.google.com/macros/s/AKfycbyMqsbNyd5V5gn5IwiyEBgD2goDgEHK-lIXbL6zYsNnX_zRBIC6xnp5RSJN9Y97HC4_7w/exec";
 
-let codeReader;
+let reader;
 
 document.getElementById("startBtn").addEventListener("click", async () => {
 
   document.getElementById("status").innerText = "Starting camera...";
 
-  const video = document.getElementById("video");
-
   try {
 
-    codeReader = new ZXing.BrowserMultiFormatReader();
+    reader = new ZXing.BrowserMultiFormatReader();
 
-    const devices = await codeReader.listVideoInputDevices();
+    const devices = await reader.listVideoInputDevices();
 
-    if (!devices || devices.length === 0) {
+    if (!devices.length) {
       document.getElementById("status").innerText = "No camera found";
       return;
     }
 
     const deviceId = devices[devices.length - 1].deviceId;
 
-    // 🔥 IMPORTANT: improve “zoomed in” feeling
-    const constraints = {
-      video: {
-        deviceId: { exact: deviceId },
-        width: { ideal: 1280 },
-        height: { ideal: 720 },
-        facingMode: "environment"
-      }
-    };
-
     document.getElementById("status").innerText =
-      "Camera active. Point at barcode.";
+      "Align barcode in green box";
 
-    video.style.display = "block";
-
-    codeReader.decodeFromVideoDevice(
+    reader.decodeFromVideoDevice(
       deviceId,
-      video,
+      document.getElementById("video"),
       async (result, err) => {
 
         if (result) {
@@ -96,16 +106,14 @@ document.getElementById("startBtn").addEventListener("click", async () => {
           document.getElementById("status").innerText =
             "Scanned: " + text;
 
+          // stable Google Sheets call
+          const url = ENDPOINT + "?barcode=" + encodeURIComponent(text);
+
           try {
-
-            // 🔥 FIX: use GET instead of POST (this solves "load failed")
-            await fetch(ENDPOINT + "?barcode=" + encodeURIComponent(text));
-
+            await fetch(url);
             document.getElementById("status").innerText =
-              "Saved: " + text;
-
+              "Saved ✔ " + text;
           } catch (e) {
-
             document.getElementById("status").innerText =
               "Save failed: " + e.message;
           }
@@ -114,7 +122,6 @@ document.getElementById("startBtn").addEventListener("click", async () => {
     );
 
   } catch (err) {
-
     document.getElementById("status").innerText =
       "ERROR: " + err.message;
   }

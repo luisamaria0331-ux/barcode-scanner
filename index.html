@@ -22,16 +22,15 @@
     button {
       font-size: 18px;
       padding: 12px 20px;
-      cursor: pointer;
     }
 
     #status {
       margin-top: 15px;
-      font-size: 16px;
       font-weight: bold;
     }
   </style>
 </head>
+
 <body>
 
 <h2>📦 Barcode Scanner</h2>
@@ -46,36 +45,47 @@
 
 const ENDPOINT = "https://script.google.com/macros/s/AKfycbyMqsbNyd5V5gn5IwiyEBgD2goDgEHK-lIXbL6zYsNnX_zRBIC6xnp5RSJN9Y97HC4_7w/exec";
 
-let scanner = null;
+let scanner;
 
 document.getElementById("startBtn").addEventListener("click", async () => {
 
-  document.getElementById("status").innerText = "Button clicked";
+  document.getElementById("status").innerText = "Starting camera...";
 
   try {
 
     const cameras = await Html5Qrcode.getCameras();
 
-    document.getElementById("status").innerText =
-      "Found " + cameras.length + " camera(s)";
-
     if (!cameras || cameras.length === 0) {
-      document.getElementById("status").innerText =
-        "No cameras found";
+      document.getElementById("status").innerText = "No cameras found";
       return;
     }
+
+    const cameraId = cameras[cameras.length - 1].id;
 
     document.getElementById("reader").style.display = "block";
 
     scanner = new Html5Qrcode("reader");
 
-    const cameraId = cameras[cameras.length - 1].id;
-
     await scanner.start(
       cameraId,
       {
-        fps: 10,
-        qrbox: { width: 250, height: 150 }
+        fps: 15,
+
+        qrbox: { width: 280, height: 120 },
+
+        // 🔥 KEY FIX: barcode formats only (NO QR CODES)
+        formatsToSupport: [
+          Html5QrcodeSupportedFormats.CODE_128,
+          Html5QrcodeSupportedFormats.EAN_13,
+          Html5QrcodeSupportedFormats.EAN_8,
+          Html5QrcodeSupportedFormats.UPC_A,
+          Html5QrcodeSupportedFormats.CODE_39
+        ],
+
+        // helps a bit with mobile cameras
+        experimentalFeatures: {
+          useBarCodeDetectorIfSupported: true
+        }
       },
 
       async (decodedText) => {
@@ -84,8 +94,7 @@ document.getElementById("startBtn").addEventListener("click", async () => {
           "Scanned: " + decodedText;
 
         try {
-
-          const response = await fetch(ENDPOINT, {
+          await fetch(ENDPOINT, {
             method: "POST",
             headers: {
               "Content-Type": "application/json"
@@ -95,34 +104,24 @@ document.getElementById("startBtn").addEventListener("click", async () => {
             })
           });
 
-          const text = await response.text();
-
           document.getElementById("status").innerText =
             "Saved: " + decodedText;
 
-        } catch (saveError) {
-
+        } catch (err) {
           document.getElementById("status").innerText =
-            "Save Error: " + saveError.message;
-
-          console.error(saveError);
+            "Save error: " + err.message;
         }
       },
 
-      (scanError) => {
-        // ignore scan failures while searching
-      }
+      () => {}
     );
 
     document.getElementById("status").innerText =
-      "Camera active. Point at a barcode.";
+      "Camera active. Point at barcode.";
 
   } catch (err) {
-
     document.getElementById("status").innerText =
       "ERROR: " + err.message;
-
-    console.error(err);
   }
 
 });

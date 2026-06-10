@@ -4,18 +4,18 @@
   <meta charset="utf-8">
   <title>Barcode Scanner</title>
 
-  <script src="https://unpkg.com/html5-qrcode"></script>
+  <script src="https://unpkg.com/@zxing/library@latest"></script>
 
   <style>
     body {
-      font-family: Arial, sans-serif;
+      font-family: Arial;
       text-align: center;
       padding: 20px;
     }
 
-    #reader {
+    video {
       width: 320px;
-      margin: 20px auto;
+      margin-top: 20px;
       display: none;
     }
 
@@ -37,7 +37,7 @@
 
 <button id="startBtn">Start Scanning</button>
 
-<div id="reader"></div>
+<video id="video" autoplay></video>
 
 <div id="status">Idle</div>
 
@@ -45,79 +45,64 @@
 
 const ENDPOINT = "https://script.google.com/macros/s/AKfycbyMqsbNyd5V5gn5IwiyEBgD2goDgEHK-lIXbL6zYsNnX_zRBIC6xnp5RSJN9Y97HC4_7w/exec";
 
-let scanner;
+let codeReader;
 
 document.getElementById("startBtn").addEventListener("click", async () => {
 
   document.getElementById("status").innerText = "Starting camera...";
 
+  const video = document.getElementById("video");
+  video.style.display = "block";
+
+  codeReader = new ZXing.BrowserMultiFormatReader();
+
   try {
 
-    const cameras = await Html5Qrcode.getCameras();
+    const devices = await codeReader.listVideoInputDevices();
 
-    if (!cameras || cameras.length === 0) {
-      document.getElementById("status").innerText = "No cameras found";
+    if (devices.length === 0) {
+      document.getElementById("status").innerText = "No camera found";
       return;
     }
 
-    const cameraId = cameras[cameras.length - 1].id;
-
-    document.getElementById("reader").style.display = "block";
-
-    scanner = new Html5Qrcode("reader");
-
-    await scanner.start(
-      cameraId,
-      {
-        fps: 15,
-
-        qrbox: { width: 280, height: 120 },
-
-        // 🔥 KEY FIX: barcode formats only (NO QR CODES)
-        formatsToSupport: [
-          Html5QrcodeSupportedFormats.CODE_128,
-          Html5QrcodeSupportedFormats.EAN_13,
-          Html5QrcodeSupportedFormats.EAN_8,
-          Html5QrcodeSupportedFormats.UPC_A,
-          Html5QrcodeSupportedFormats.CODE_39
-        ],
-
-        // helps a bit with mobile cameras
-        experimentalFeatures: {
-          useBarCodeDetectorIfSupported: true
-        }
-      },
-
-      async (decodedText) => {
-
-        document.getElementById("status").innerText =
-          "Scanned: " + decodedText;
-
-        try {
-          await fetch(ENDPOINT, {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              barcode: decodedText
-            })
-          });
-
-          document.getElementById("status").innerText =
-            "Saved: " + decodedText;
-
-        } catch (err) {
-          document.getElementById("status").innerText =
-            "Save error: " + err.message;
-        }
-      },
-
-      () => {}
-    );
+    const selectedDeviceId = devices[devices.length - 1].deviceId;
 
     document.getElementById("status").innerText =
       "Camera active. Point at barcode.";
+
+    codeReader.decodeFromVideoDevice(
+      selectedDeviceId,
+      video,
+      async (result, err) => {
+
+        if (result) {
+
+          const text = result.getText();
+
+          document.getElementById("status").innerText =
+            "Scanned: " + text;
+
+          try {
+            await fetch(ENDPOINT, {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify({
+                barcode: text
+              })
+            });
+
+            document.getElementById("status").innerText =
+              "Saved: " + text;
+
+          } catch (e) {
+            document.getElementById("status").innerText =
+              "Save error: " + e.message;
+          }
+        }
+      }
+    );
 
   } catch (err) {
     document.getElementById("status").innerText =
@@ -130,4 +115,3 @@ document.getElementById("startBtn").addEventListener("click", async () => {
 
 </body>
 </html>
-

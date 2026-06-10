@@ -28,37 +28,41 @@
 const ENDPOINT = https://script.google.com/macros/s/AKfycbyMqsbNyd5V5gn5IwiyEBgD2goDgEHK-lIXbL6zYsNnX_zRBIC6xnp5RSJN9Y97HC4_7w/exec;
 
 let scanner;
-
 document.getElementById("startBtn").addEventListener("click", async () => {
 
-  document.getElementById("startBtn").style.display = "none";
-  document.getElementById("reader").style.display = "block";
+  alert("Button clicked");
 
-  scanner = new Html5Qrcode("reader");
+  try {
+    const cameras = await Html5Qrcode.getCameras();
 
-  const cameras = await Html5Qrcode.getCameras();
-  const cameraId = cameras[0].id;
+    alert("Found " + cameras.length + " cameras");
 
-  document.getElementById("status").innerText = "Camera active...";
-
-  scanner.start(
-    cameraId,
-    { fps: 10, qrbox: 250 },
-    async (decodedText) => {
-
-      document.getElementById("status").innerText =
-        "Scanned: " + decodedText;
-
-      await fetch(ENDPOINT, {
-        method: "POST",
-        body: JSON.stringify({ barcode: decodedText }),
-        headers: { "Content-Type": "application/json" }
-      });
-
+    if (cameras.length === 0) {
+      alert("No cameras found");
+      return;
     }
-  );
 
+    const cameraId = cameras[0].id;
+
+    scanner = new Html5Qrcode("reader");
+
+    await scanner.start(
+      cameraId,
+      {
+        fps: 10,
+        qrbox: 250
+      },
+      (decodedText) => {
+        alert("Scanned: " + decodedText);
+      }
+    );
+
+  } catch (err) {
+    alert("ERROR: " + err);
+    console.error(err);
+  }
 });
+
 
 </script>
 

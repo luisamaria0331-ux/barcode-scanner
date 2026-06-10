@@ -2,18 +2,36 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>Scanner</title>
+  <title>Barcode Scanner</title>
 
   <script src="https://unpkg.com/html5-qrcode"></script>
 
   <style>
-    body { font-family: Arial; text-align: center; padding: 20px; }
-    #reader { width: 320px; margin: auto; display: none; }
-    button { font-size: 18px; padding: 12px 20px; }
-    #status { margin-top: 10px; }
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+      padding: 20px;
+    }
+
+    #reader {
+      width: 320px;
+      margin: 20px auto;
+      display: none;
+    }
+
+    button {
+      font-size: 18px;
+      padding: 12px 20px;
+      cursor: pointer;
+    }
+
+    #status {
+      margin-top: 15px;
+      font-size: 16px;
+      font-weight: bold;
+    }
   </style>
 </head>
-
 <body>
 
 <h2>📦 Barcode Scanner</h2>
@@ -21,50 +39,96 @@
 <button id="startBtn">Start Scanning</button>
 
 <div id="reader"></div>
+
 <div id="status">Idle</div>
 
 <script>
 
-const ENDPOINT = https://script.google.com/macros/s/AKfycbyMqsbNyd5V5gn5IwiyEBgD2goDgEHK-lIXbL6zYsNnX_zRBIC6xnp5RSJN9Y97HC4_7w/exec;
+const ENDPOINT = "https://script.google.com/macros/s/AKfycbyMqsbNyd5V5gn5IwiyEBgD2goDgEHK-lIXbL6zYsNnX_zRBIC6xnp5RSJN9Y97HC4_7w/exec";
 
-let scanner;
+let scanner = null;
+
 document.getElementById("startBtn").addEventListener("click", async () => {
 
-  alert("Button clicked");
+  document.getElementById("status").innerText = "Button clicked";
 
   try {
+
     const cameras = await Html5Qrcode.getCameras();
 
-    alert("Found " + cameras.length + " cameras");
+    document.getElementById("status").innerText =
+      "Found " + cameras.length + " camera(s)";
 
-    if (cameras.length === 0) {
-      alert("No cameras found");
+    if (!cameras || cameras.length === 0) {
+      document.getElementById("status").innerText =
+        "No cameras found";
       return;
     }
 
-    const cameraId = cameras[0].id;
+    document.getElementById("reader").style.display = "block";
 
     scanner = new Html5Qrcode("reader");
+
+    const cameraId = cameras[cameras.length - 1].id;
 
     await scanner.start(
       cameraId,
       {
         fps: 10,
-        qrbox: 250
+        qrbox: { width: 250, height: 150 }
       },
-      (decodedText) => {
-        alert("Scanned: " + decodedText);
+
+      async (decodedText) => {
+
+        document.getElementById("status").innerText =
+          "Scanned: " + decodedText;
+
+        try {
+
+          const response = await fetch(ENDPOINT, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              barcode: decodedText
+            })
+          });
+
+          const text = await response.text();
+
+          document.getElementById("status").innerText =
+            "Saved: " + decodedText;
+
+        } catch (saveError) {
+
+          document.getElementById("status").innerText =
+            "Save Error: " + saveError.message;
+
+          console.error(saveError);
+        }
+      },
+
+      (scanError) => {
+        // ignore scan failures while searching
       }
     );
 
+    document.getElementById("status").innerText =
+      "Camera active. Point at a barcode.";
+
   } catch (err) {
-    alert("ERROR: " + err);
+
+    document.getElementById("status").innerText =
+      "ERROR: " + err.message;
+
     console.error(err);
   }
-});
 
+});
 
 </script>
 
 </body>
 </html>
+
